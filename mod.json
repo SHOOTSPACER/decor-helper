@@ -1,17 +1,46 @@
 {
-	"geode": "{{ geode }}",
+	"geode": "4.6.0",
 	"gd": {
-		"win": "2.2081",
-		"android": "2.2081",
-		"mac": "2.2081",
-		"ios": "2.2081"
+		"win": "2.2074",
+		"android": "2.2074",
+		"mac": "2.2074",
+		"ios": "2.2074"
 	},
-	"id": "{{ id }}",
-	"name": "{{ name }}",
-	"version": "{{ version }}",
-	"developer": "{{ developer }}",
-	"description": "{{ description }}",
-	"dependencies": {
-		"geode.node-ids": ">=v1.23.3"
+	"id": "yourname.decor-helper",
+	"name": "Decor Helper",
+	"version": "v1.0.0",
+	"developer": "YourName",
+	"description": "Decoration tips and one-click auto shadows in the editor.",
+	"settings": {
+		"show-tip": {
+			"type": "bool",
+			"name": "Show Tip In Popup",
+			"description": "Show a random decoration tip when opening the Decor popup.",
+			"default": true
+		},
+		"offset-x": {
+			"type": "float",
+			"name": "Shadow Offset X",
+			"description": "How far the shadow copy is moved horizontally (in units).",
+			"default": 3.0,
+			"min": -30.0,
+			"max": 30.0
+		},
+		"offset-y": {
+			"type": "float",
+			"name": "Shadow Offset Y",
+			"description": "How far the shadow copy is moved vertically (in units).",
+			"default": -3.0,
+			"min": -30.0,
+			"max": 30.0
+		},
+		"shadow-color": {
+			"type": "int",
+			"name": "Shadow Color Channel",
+			"description": "Color channel for the shadow copy. 1010 = Black.",
+			"default": 1010,
+			"min": 1,
+			"max": 1012
+		}
 	}
 }
