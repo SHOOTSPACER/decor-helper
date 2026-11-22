@@ -1,117 +1,94 @@
-{%- if comments -%}
-/**
- * Include the Geode headers.
- */
-{% endif -%}
 #include <Geode/Geode.hpp>
-{% if comments %}
-/**
- * Brings cocos2d and all Geode namespaces to the current scope.
- */
-{%- endif %}
+#include <Geode/modify/EditorUI.hpp>
+#include <Geode/ui/Notification.hpp>
+#include <array>
+#include <cstdlib>
+
 using namespace geode::prelude;
-{% if comments %}
-/**
- * `$modify` lets you extend and modify GD's classes.
- * To hook a function in Geode, simply $modify the class
- * and write a new function definition with the signature of
- * the function you want to hook.
- *
- * Here we use the overloaded `$modify` macro to set our own class name,
- * so that we can use it for button callbacks.
- *
- * Notice the header being included, you *must* include the header for
- * the class you are modifying, or you will get a compile error.
- *
- * Another way you could do this is like this:
- *
- * struct MyMenuLayer : Modify<MyMenuLayer, MenuLayer> {};
- */
-{%- endif %}
-#include <Geode/modify/MenuLayer.hpp>
-class $modify(MyMenuLayer, MenuLayer) {
-{%- if comments %}
-	/**
-	 * Typically classes in GD are initialized using the `init` function, (though not always!),
-	 * so here we use it to add our own button to the bottom menu.
-	 *
-	 * Note that for all hooks, your signature has to *match exactly*,
-	 * `void init()` would not place a hook!
-	*/
-{%- endif %}
-	bool init() {
-{%- if comments %}
-		/**
-		 * We call the original init function so that the
-		 * original class is properly initialized.
-		 */
-{%- endif %}
-		if (!MenuLayer::init()) {
-			return false;
-		}
-{% if comments %}
-		/**
-		 * You can use methods from the `geode::log` namespace to log messages to the console,
-		 * being useful for debugging and such. See this page for more info about logging:
-		 * https://docs.geode-sdk.org/tutorials/logging
-		*/
-{%- endif %}
-		log::debug("Hello from my MenuLayer::init hook! This layer has {} children.", this->getChildrenCount());
-{% if comments %}
-		/**
-		 * See this page for more info about buttons
-		 * https://docs.geode-sdk.org/tutorials/buttons
-		*/
-{%- endif %}
-		auto myButton = CCMenuItemSpriteExtra::create(
-			CCSprite::createWithSpriteFrameName("GJ_likeBtn_001.png"),
-			this,
-{%- if comments %}
-			/**
-			 * Here we use the name we set earlier for our modify class.
-			*/
-{%- endif %}
-			menu_selector(MyMenuLayer::onMyButton)
-		);
-{% if comments %}
-		/**
-		 * Here we access the `bottom-menu` node by its ID, and add our button to it.
-		 * Node IDs are a Geode feature, see this page for more info about it:
-		 * https://docs.geode-sdk.org/tutorials/nodetree
-		*/
-{%- endif %}
-		auto menu = this->getChildByID("bottom-menu");
-		menu->addChild(myButton);
-{% if comments %}
-		/**
-		 * The `_spr` string literal operator just prefixes the string with
-		 * your mod id followed by a slash. This is good practice for setting your own node ids.
-		*/
-{%- endif %}
-		myButton->setID("my-button"_spr);
-{% if comments %}
-		/**
-		 * We update the layout of the menu to ensure that our button is properly placed.
-		 * This is yet another Geode feature, see this page for more info about it:
-		 * https://docs.geode-sdk.org/tutorials/layouts
-		*/
-{%- endif %}
+
+static constexpr std::array<const char*, 10> TIPS = {
+	"Use <cy>3 or more colors</c> per area: a base, a highlight and a shadow.",
+	"Put decoration on <cy>different Z layers</c> so it frames the gameplay instead of covering it.",
+	"Keep the area around the player <cy>clean</c>. Players need to read the gameplay.",
+	"Pick a <cy>light source</c> direction and keep highlights and shadows consistent.",
+	"Use <cy>pulses and color triggers</c> to make the level feel alive.",
+	"Copy and paste good details, then <cy>rotate, flip or recolor</c> them for variety.",
+	"Add <cy>depth</c> with a darker background, mid-ground decor and a bright foreground.",
+	"Use <cy>transparency</c> (blending) for glows, fog and light effects.",
+	"Vary object <cy>sizes</c>. Mixed scales look more natural than uniform ones.",
+	"Save often and keep a <cy>backup copy</c> of the level before big decoration passes."
+};
+
+class $modify(DecorEditorUI, EditorUI) {
+	bool init(LevelEditorLayer* editorLayer) {
+		if (!EditorUI::init(editorLayer)) return false;
+
+		auto menu = this->getChildByID("undo-menu");
+		if (!menu) return true; // layout changed: skip the button rather than crash
+
+		auto sprite = ButtonSprite::create("Decor");
+		sprite->setScale(0.6f);
+		auto button = CCMenuItemExt::createSpriteExtra(sprite, [this](CCMenuItemSpriteExtra*) {
+			this->openDecorPopup();
+		});
+		button->setID("decor-button"_spr);
+		menu->addChild(button);
 		menu->updateLayout();
-{% if comments %}
-		/**
-		 * We return `true` to indicate that the class was properly initialized.
-		 */
-{%- endif %}
 		return true;
 	}
-{% if comments %}
-	/**
-	 * This is the callback function for the button we created earlier.
-	 * The signature for button callbacks must always be the same,
-	 * return type `void` and taking a `CCObject*`.
-	*/
-{%- endif %}
-	void onMyButton(CCObject*) {
-		FLAlertLayer::create("Geode", "Hello from my custom mod!", "OK")->show();
+
+	void openDecorPopup() {
+		std::string text = "Select objects, then press <cg>Auto Shadow</c> to add a shadow copy behind them.";
+		if (Mod::get()->getSettingValue<bool>("show-tip")) {
+			text += "\n\n<cj>Tip:</c> ";
+			text += TIPS[std::rand() % TIPS.size()];
+		}
+		Ref<DecorEditorUI> self = this;
+		createQuickPopup(
+			"Decor Helper", text, "Close", "Auto Shadow",
+			[self](auto, bool autoShadow) {
+				if (autoShadow) self->autoShadow();
+			}
+		);
+	}
+
+	void autoShadow() {
+		auto selected = this->getSelectedObjects();
+		if (!m_editorLayer || !selected || selected->count() == 0) {
+			Notification::create("Select some objects first!", NotificationIcon::Warning)->show();
+			return;
+		}
+
+		auto offset = ccp(
+			static_cast<float>(Mod::get()->getSettingValue<double>("offset-x")),
+			static_cast<float>(Mod::get()->getSettingValue<double>("offset-y"))
+		);
+		int color = static_cast<int>(Mod::get()->getSettingValue<int64_t>("shadow-color"));
+
+		// Copy the list first so we never modify the selection while looping over it.
+		std::vector<GameObject*> sources;
+		for (auto obj : CCArrayExt<GameObject*>(selected)) {
+			if (obj) sources.push_back(obj);
+		}
+
+		int made = 0;
+		for (auto src : sources) {
+			auto copy = m_editorLayer->createObject(src->m_objectID, src->getPosition() + offset, true);
+			if (!copy) continue;
+
+			copy->setRotation(src->getRotation());
+			copy->setFlipX(src->isFlipX());
+			copy->setFlipY(src->isFlipY());
+			copy->updateCustomScaleX(src->m_scaleX);
+			copy->updateCustomScaleY(src->m_scaleY);
+			if (copy->m_baseColor) copy->m_baseColor->m_colorID = color;
+			copy->m_zLayer = ZLayer::B2; // behind the original
+			made++;
+		}
+
+		Notification::create(
+			fmt::format("Added {} shadow object(s)", made),
+			NotificationIcon::Success
+		)->show();
 	}
 };
